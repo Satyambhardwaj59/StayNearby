@@ -1,0 +1,147 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/**
+ * StayNearby design tokens.
+ *
+ * Colour values are HSL channels consumed by Tailwind as `hsl(var(--token))`.
+ * The palette is a restrained indigo on clean, neutral surfaces — no gradients,
+ * no glassmorphism. Semantic state colours (success/warning/destructive) meet
+ * WCAG AA on the card surface.
+ */
+:root {
+  /* `--font-montserrat` is injected by next/font in the root layout. The fallback
+     chain is metric-compatible so text does not reflow when the font loads. */
+  --font-sans: var(--font-montserrat), ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto,
+    'Helvetica Neue', Arial, sans-serif;
+
+  /* Radii */
+  --radius: 0.75rem;
+
+  /* Surfaces & text */
+  --background: 240 25% 99%;
+  --foreground: 235 25% 13%;
+  --card: 0 0% 100%;
+  --card-foreground: 235 25% 13%;
+
+  /* Brand */
+  --primary: 243 62% 51%;
+  --primary-foreground: 0 0% 100%;
+  --primary-muted: 243 70% 96%;
+
+  /* Neutral surfaces */
+  --secondary: 240 20% 96%;
+  --secondary-foreground: 235 25% 18%;
+  --muted: 240 20% 96%;
+  --muted-foreground: 237 12% 44%;
+  --accent: 243 55% 96%;
+  --accent-foreground: 243 52% 40%;
+
+  /* Semantic states */
+  --destructive: 0 70% 46%;
+  --destructive-foreground: 0 0% 100%;
+  --success: 152 60% 33%;
+  --success-foreground: 0 0% 100%;
+  --warning: 33 92% 40%;
+  --warning-foreground: 0 0% 100%;
+
+  /* Lines & focus */
+  --border: 240 16% 89%;
+  --input: 240 16% 88%;
+  --ring: 243 62% 51%;
+}
+
+.dark {
+  --background: 235 22% 7%;
+  --foreground: 235 15% 95%;
+  --card: 235 20% 10%;
+  --card-foreground: 235 15% 95%;
+
+  --primary: 243 80% 70%;
+  --primary-foreground: 235 30% 8%;
+  --primary-muted: 243 30% 18%;
+
+  --secondary: 235 16% 16%;
+  --secondary-foreground: 235 15% 92%;
+  --muted: 235 16% 16%;
+  --muted-foreground: 235 12% 65%;
+  --accent: 243 30% 20%;
+  --accent-foreground: 243 70% 82%;
+
+  --destructive: 0 66% 58%;
+  --destructive-foreground: 0 0% 100%;
+  --success: 152 45% 55%;
+  --success-foreground: 235 30% 8%;
+  --warning: 33 85% 60%;
+  --warning-foreground: 235 30% 8%;
+
+  --border: 235 16% 20%;
+  --input: 235 16% 20%;
+  --ring: 243 80% 70%;
+}
+
+* {
+  border-color: hsl(var(--border));
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* Headings use the same family but tighter tracking for hierarchy. */
+h1,
+h2,
+h3,
+h4 {
+  font-weight: 700;
+  letter-spacing: -0.015em;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--border));
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground));
+}
+
+/* One consistent focus ring for every interactive element. */
+:focus-visible {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 2px;
+}
+
+/* Sidebar / sticky sections that must never shift the page. */
+.sticky-under-header {
+  top: 5rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
