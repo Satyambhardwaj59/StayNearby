@@ -1,6 +1,7 @@
 'use client';
-import { apiFetch } from '@/lib/api/client';
+import { apiFetch, readErrorMessage } from '@/lib/api/client';
 import { useFavoritesStore } from '@/lib/favorites/store';
+import { notifyAuthChanged } from '@/lib/auth/events';
 
 import { useState, Suspense } from 'react';
 import Link from 'next/link';
@@ -18,6 +19,7 @@ function RegisterForm() {
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
+  const [accepted, setAccepted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -26,20 +28,33 @@ function RegisterForm() {
     setError(null);
     setLoading(true);
 
+    // The API expects a bare `+?digits` phone; drop the spacing users type naturally.
+    const normalizedPhone = phone.replace(/[\s()-]/g, '');
+
     try {
       const res = await apiFetch('/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, phone, password, role }),
+        body: JSON.stringify({
+          name,
+          email,
+          password,
+          role,
+          acceptTerms: accepted,
+          ...(normalizedPhone ? { phone: normalizedPhone } : {}),
+        }),
       });
-      const data = await res.json();
+
       if (!res.ok) {
-        throw new Error(data?.error?.message || 'Registration failed. Please check inputs.');
+        setError(await readErrorMessage(res, 'Registration failed. Please check your inputs.'));
+        return;
       }
+
       useFavoritesStore.getState().reset();
+      notifyAuthChanged();
       router.push('/dashboard');
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred during account creation.');
+    } catch {
+      setError('We could not reach the server. Check your connection and try again.');
     } finally {
       setLoading(false);
     }
@@ -150,7 +165,7 @@ function RegisterForm() {
               <input
                 id="register-phone"
                 type="tel"
-                required
+                autoComplete="tel"
                 placeholder="+91 98765 43210"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
@@ -181,8 +196,25 @@ function RegisterForm() {
             </div>
           </div>
 
-          <Button type="submit" disabled={loading} className="w-full mt-2 font-semibold gap-1.5">
-            {loading ? 'Creating account...' : 'Create Account'} <ArrowRight className="h-4 w-4" />
+          <div className="flex items-start gap-2.5">
+            <input
+              id="register-terms"
+              type="checkbox"
+              checked={accepted}
+              onChange={(e) => setAccepted(e.target.checked)}
+              className="mt-0.5 h-4 w-4 shrink-0 rounded border-input text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            />
+            <label htmlFor="register-terms" className="text-xs text-muted-foreground leading-relaxed">
+              I agree to the StayNearby terms of use and privacy policy.
+            </label>
+          </div>
+
+          <Button
+            type="submit"
+            disabled={loading || !accepted}
+            className="w-full mt-2 font-semibold gap-1.5"
+          >
+            {loading ? 'Creating account...' : 'Create Account'} <ArrowRight className="h-4 w-4" aria-hidden />
           </Button>
         </form>
 

@@ -8,28 +8,6 @@ import {
 
 /** Auth cookies are httpOnly + SameSite=Lax; Secure follows the environment. */
 
-function parseDurationMs(value: string): number {
-  const match = /^(\d+)\s*(ms|s|m|h|d)?$/.exec(value.trim());
-  if (!match) {
-    return 15 * 60 * 1_000;
-  }
-  const amount = Number(match[1]);
-  switch (match[2]) {
-    case 'ms':
-      return amount;
-    case 's':
-      return amount * 1_000;
-    case 'h':
-      return amount * 3_600_000;
-    case 'd':
-      return amount * 86_400_000;
-    case 'm':
-    default:
-      return amount * 60_000;
-  }
-}
-
-const accessMaxAge = parseDurationMs(env.ACCESS_TOKEN_TTL);
 const refreshMaxAge = env.REFRESH_TOKEN_TTL_DAYS * 86_400_000;
 
 export function setAuthCookies(
@@ -37,7 +15,12 @@ export function setAuthCookies(
   tokens: { accessToken: string; refreshToken: string },
 ): void {
   const options: CookieOptions = { ...cookieDefaults };
-  res.cookie(ACCESS_TOKEN_COOKIE, tokens.accessToken, { ...options, maxAge: accessMaxAge });
+  // The access cookie deliberately lives as long as the refresh cookie rather
+  // than the 15-minute access JWT. The JWT's own `exp` claim still enforces the
+  // short access lifetime; the longer-lived cookie only means the browser keeps
+  // sending it. That lets the API answer an expired request with TOKEN_EXPIRED
+  // (refresh and retry) instead of looking like an anonymous/signed-out user.
+  res.cookie(ACCESS_TOKEN_COOKIE, tokens.accessToken, { ...options, maxAge: refreshMaxAge });
   res.cookie(REFRESH_TOKEN_COOKIE, tokens.refreshToken, { ...options, maxAge: refreshMaxAge });
 }
 

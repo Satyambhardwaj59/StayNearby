@@ -20,12 +20,15 @@ interface FavoritesState {
   savedIds: Set<string>;
   status: Status;
   lastError: string | null;
+  /** Set when a toggle failed because the session is gone; callers redirect to login. */
+  authRequired: boolean;
   /** Property ids with an in-flight mutation (disables their button). */
   pending: Set<string>;
   hydrate: (options?: { force?: boolean }) => Promise<void>;
   toggle: (propertyId: string) => Promise<boolean>;
   /** Merge server-rendered saved state without an extra request. */
   seed: (ids: string[]) => void;
+  clearAuthRequired: () => void;
   reset: () => void;
 }
 
@@ -35,6 +38,7 @@ export const useFavoritesStore = create<FavoritesState>((set, get) => ({
   savedIds: EMPTY,
   status: 'idle',
   lastError: null,
+  authRequired: false,
   pending: EMPTY,
 
   async hydrate(options) {
@@ -44,9 +48,9 @@ export const useFavoritesStore = create<FavoritesState>((set, get) => ({
     }
     set({ status: 'loading', lastError: null });
     try {
-      const result = await favoritesApi.list({ limit: 50 });
+      const result = await favoritesApi.ids();
       set({
-        savedIds: new Set(result.data.map((card) => card.id)),
+        savedIds: new Set(result.data.ids),
         status: 'ready',
       });
     } catch (error) {
@@ -86,12 +90,20 @@ export const useFavoritesStore = create<FavoritesState>((set, get) => ({
       set({ pending: done });
       return !wasSaved;
     } catch (error) {
-      // Roll back to the previous truth and surface the failure.
+      // Roll back to the previous truth.
       const rolledBack = new Set(get().savedIds);
       if (wasSaved) rolledBack.add(propertyId);
       else rolledBack.delete(propertyId);
       const done = new Set(get().pending);
       done.delete(propertyId);
+
+      if (isApiError(error) && error.status === 401) {
+        // The session is gone. Signal callers to send the user to login and keep
+        // lastError null so the UI does not show a misleading failure message.
+        set({ savedIds: rolledBack, pending: done, authRequired: true, lastError: null });
+        return wasSaved;
+      }
+
       set({
         savedIds: rolledBack,
         pending: done,
@@ -107,7 +119,17 @@ export const useFavoritesStore = create<FavoritesState>((set, get) => ({
     set({ savedIds: merged });
   },
 
+  clearAuthRequired() {
+    set({ authRequired: false });
+  },
+
   reset() {
-    set({ savedIds: new Set(), status: 'idle', lastError: null, pending: new Set() });
+    set({
+      savedIds: new Set(),
+      status: 'idle',
+      lastError: null,
+      authRequired: false,
+      pending: new Set(),
+    });
   },
 }));

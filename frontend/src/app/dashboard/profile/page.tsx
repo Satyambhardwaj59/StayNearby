@@ -1,5 +1,5 @@
 'use client';
-import { apiFetch } from '@/lib/api/client';
+import { apiFetch, readErrorMessage } from '@/lib/api/client';
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
@@ -84,6 +84,7 @@ export default function ProfilePage() {
 
   // Form state
   const [name, setName] = useState('');
+  // Phone is displayed but never edited here — the API only changes it via OTP verification.
   const [phone, setPhone] = useState('');
   const [bio, setBio] = useState('');
   const [gender, setGender] = useState('');
@@ -112,7 +113,8 @@ export default function ProfilePage() {
         const res = await apiFetch('/users/me');
         if (res.ok) {
           const data = await res.json();
-          const u: PrivateUser = data.data;
+          // GET /users/me responds with { data: { user } }.
+          const u: PrivateUser = data.data.user;
           setUser(u);
           setName(u.name ?? '');
           setPhone(u.phone ?? '');
@@ -138,16 +140,16 @@ export default function ProfilePage() {
     e.preventDefault();
     setSaving(true);
     try {
+      // Phone is intentionally omitted: PATCH /users/me does not accept it.
       const res = await apiFetch('/users/me', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, phone: phone || null, bio: bio || null, gender: gender || null, occupation: occupation || null, citySlug: citySlug || null }),
+        body: JSON.stringify({ name, bio: bio || null, gender: gender || null, occupation: occupation || null, citySlug: citySlug || null }),
       });
       if (res.ok) {
         showToast('success', 'Profile updated successfully!');
       } else {
-        const err = await res.json();
-        showToast('error', err?.error?.message ?? 'Failed to update profile.');
+        showToast('error', await readErrorMessage(res, 'Failed to update profile.'));
       }
     } catch {
       showToast('error', 'Network error. Please try again.');
@@ -160,20 +162,24 @@ export default function ProfilePage() {
     e.preventDefault();
     setSaving(true);
     try {
-      const res = await apiFetch('/users/me/preferences', {
+      // Preferences live on the user document, so they go through PATCH /users/me
+      // (there is no /users/me/preferences route).
+      const res = await apiFetch('/users/me', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          budgetMin: budgetMin ? Number(budgetMin) : null,
-          budgetMax: budgetMax ? Number(budgetMax) : null,
-          preferredCities: preferredCities.split(',').map((c) => c.trim()).filter(Boolean),
-          preferredPropertyTypes,
+          preferences: {
+            budgetMin: budgetMin ? Number(budgetMin) : null,
+            budgetMax: budgetMax ? Number(budgetMax) : null,
+            preferredCities: preferredCities.split(',').map((c) => c.trim()).filter(Boolean),
+            preferredPropertyTypes,
+          },
         }),
       });
       if (res.ok) {
         showToast('success', 'Preferences saved!');
       } else {
-        showToast('error', 'Failed to save preferences.');
+        showToast('error', await readErrorMessage(res, 'Failed to save preferences.'));
       }
     } catch {
       showToast('error', 'Network error. Please try again.');
@@ -194,8 +200,9 @@ export default function ProfilePage() {
     }
     setSaving(true);
     try {
-      const res = await apiFetch('/users/me/password', {
-        method: 'PATCH',
+      // Password changes go through the auth module, not /users/me.
+      const res = await apiFetch('/auth/password/change', {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ currentPassword, newPassword }),
       });
@@ -205,8 +212,7 @@ export default function ProfilePage() {
         setNewPassword('');
         setConfirmPassword('');
       } else {
-        const err = await res.json();
-        showToast('error', err?.error?.message ?? 'Failed to change password.');
+        showToast('error', await readErrorMessage(res, 'Failed to change password.'));
       }
     } catch {
       showToast('error', 'Network error. Please try again.');
@@ -341,11 +347,15 @@ export default function ProfilePage() {
                       id="profile-phone"
                       type="tel"
                       value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
+                      readOnly
                       placeholder="+91 98765 43210"
-                      className="w-full rounded-xl border bg-background pl-9 pr-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition"
+                      aria-describedby="profile-phone-hint"
+                      className="w-full rounded-xl border bg-muted/50 pl-9 pr-3 py-2.5 text-sm text-muted-foreground cursor-not-allowed"
                     />
                   </div>
+                  <p id="profile-phone-hint" className="mt-1 text-xs text-muted-foreground">
+                    Phone numbers change via OTP verification.
+                  </p>
                 </div>
 
                 <div>
@@ -606,20 +616,13 @@ export default function ProfilePage() {
                 <div className="flex-1">
                   <p className="font-semibold text-sm text-foreground">Delete Account</p>
                   <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
-                    Permanently delete your account and all associated data including listings, messages, and visit history.
-                    This action <strong>cannot be undone</strong>.
+                    Online account deletion is not available yet. To request deletion of your account
+                    and its data, contact{' '}
+                    <a href="mailto:support@staynearby.example" className="font-medium text-primary hover:underline">
+                      StayNearby support
+                    </a>
+                    .
                   </p>
-                  <button
-                    type="button"
-                    className="mt-3 rounded-lg bg-destructive px-4 py-2 text-xs font-semibold text-white hover:bg-destructive/90 transition shadow-sm"
-                    onClick={() => {
-                      if (window.confirm('Are you absolutely sure? This cannot be undone.')) {
-                        apiFetch('/users/me', { method: 'DELETE' });
-                      }
-                    }}
-                  >
-                    Delete My Account
-                  </button>
                 </div>
               </div>
             </div>

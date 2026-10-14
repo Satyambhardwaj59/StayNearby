@@ -24,9 +24,16 @@ function registerListeners(): void {
 export async function connectDatabase(): Promise<void> {
   registerListeners();
 
-  // `sanitizeFilter` strips query operators from filters, the last line of
-  // defence behind the request sanitiser against NoSQL operator injection.
-  mongoose.set('sanitizeFilter', true);
+  // Query-selector injection is blocked at the request boundary instead of with
+  // `sanitizeFilter`: `sanitizeRequest` recursively strips `$`-prefixed, dotted
+  // and prototype keys from body/params/query, and Zod validates every field, so
+  // user input can never introduce an operator. Mongoose's `sanitizeFilter` is
+  // deliberately OFF because it also rewrites *internal* operator filters such as
+  // `{ expiresAt: { $gt: new Date() } }` into `{ expiresAt: { $eq: { $gt: ... } } }`,
+  // which then fails to cast and breaks every range/membership query. Mongoose 9
+  // offers no per-query way to opt out (neither `mongoose.trusted` on the whole
+  // filter nor query-builder chaining bypasses it).
+  mongoose.set('sanitizeFilter', false);
   mongoose.set('strictQuery', true);
   // Indexes are managed explicitly; production builds run scripts/ensureIndexes.ts.
   mongoose.set('autoIndex', !isProduction);

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
 import { Heart } from 'lucide-react';
 import { useFavoritesStore } from '@/lib/favorites/store';
 import { cn } from '@/lib/cn';
@@ -23,6 +24,8 @@ export function FavoriteButton({ propertyId, initialFavorited }: FavoriteButtonP
   const seed = useFavoritesStore((state) => state.seed);
   const hydrate = useFavoritesStore((state) => state.hydrate);
 
+  const router = useRouter();
+  const pathname = usePathname();
   const [message, setMessage] = useState<string | null>(null);
 
   useEffect(() => {
@@ -35,6 +38,19 @@ export function FavoriteButton({ propertyId, initialFavorited }: FavoriteButtonP
   const handleClick = async () => {
     setMessage(null);
     const nowSaved = await toggle(propertyId);
+    const store = useFavoritesStore.getState();
+
+    // Session expired mid-toggle: go to login instead of pretending it worked.
+    if (store.authRequired) {
+      store.clearAuthRequired();
+      router.push(`/login?next=${encodeURIComponent(pathname)}`);
+      return;
+    }
+    // Only claim success when the request actually succeeded.
+    if (store.lastError) {
+      return;
+    }
+
     setMessage(nowSaved ? 'Saved to your list' : 'Removed from your list');
     window.setTimeout(() => setMessage(null), 2500);
   };

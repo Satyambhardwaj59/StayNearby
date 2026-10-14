@@ -23,6 +23,7 @@ import { buttonVariants } from '@/components/ui/button';
 import { useFavoritesStore } from '@/lib/favorites/store';
 import { BrandLockup } from '@/components/layout/brand-mark';
 import { currentUser } from '@/lib/api/endpoints';
+import { onAuthChanged } from '@/lib/auth/events';
 import { cn } from '@/lib/cn';
 import type { PrivateUser } from '@/lib/api/types';
 
@@ -55,12 +56,20 @@ function useSession(): SessionState {
 
   useEffect(() => {
     let active = true;
-    void currentUser().then((user) => {
-      if (!active) return;
-      setState(user ? { status: 'authed', user } : { status: 'guest' });
-    });
+    const resolve = () => {
+      void currentUser().then((user) => {
+        if (!active) return;
+        setState(user ? { status: 'authed', user } : { status: 'guest' });
+      });
+    };
+
+    resolve();
+    // The header sits in the root layout and survives client navigation, so a
+    // login/logout performed elsewhere must re-run the session lookup.
+    const unsubscribe = onAuthChanged(resolve);
     return () => {
       active = false;
+      unsubscribe();
     };
   }, []);
 

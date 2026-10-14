@@ -124,6 +124,8 @@ export const locationsApi = {
 export const favoritesApi = {
   list: (query: { page?: number; limit?: number } = {}) =>
     browserRequest<PropertyCard[]>('/favorites', { query }),
+  /** Ids only — cheaper than a page of cards when the store just needs membership. */
+  ids: () => browserRequest<{ ids: string[] }>('/favorites/ids'),
   add: (propertyId: string) =>
     browserRequest<{ favorited: boolean; created: boolean }>(`/favorites/${propertyId}`, {
       method: 'POST',

@@ -1,5 +1,6 @@
 import { apiBaseUrl } from '../config/env';
 import { ApiError, networkError, toApiError } from './error';
+import { withSessionRefresh } from './refresh';
 import type { ApiSuccess, PaginationMeta } from './types';
 
 /**
@@ -70,9 +71,8 @@ export async function request<T>(
     body = JSON.stringify(options.body);
   }
 
-  let response: Response;
-  try {
-    response = await fetch(url, {
+  const send = () =>
+    fetch(url, {
       method: options.method ?? 'GET',
       headers,
       ...(body !== undefined ? { body } : {}),
@@ -82,6 +82,11 @@ export async function request<T>(
       ...(options.next ? { next: options.next } : {}),
       ...(options.signal ? { signal: options.signal } : {}),
     });
+
+  let response: Response;
+  try {
+    // In the browser this renews an expired session once and replays the call.
+    response = await withSessionRefresh(send, path);
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') {
       throw error;

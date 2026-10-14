@@ -4,10 +4,12 @@ import { isPlainObject } from '../shared/utils/object';
 /**
  * Defence-in-depth against NoSQL operator injection and prototype pollution.
  *
- * Zod validation already strips unknown keys and enforces primitive types, and
- * Mongoose runs with `sanitizeFilter`. This middleware removes the patterns
- * those layers cannot see: keys starting with `$`, dotted keys, and
- * `__proto__`/`constructor`/`prototype` anywhere in the request.
+ * Zod validation strips unknown keys and enforces primitive types, but it only
+ * runs on routes with an explicit schema. This middleware is the request-boundary
+ * defence against NoSQL operator injection, applied to every request: it removes
+ * keys starting with `$`, dotted keys, and `__proto__`/`constructor`/`prototype`
+ * anywhere in body, params and query. (Mongoose's `sanitizeFilter` is therefore
+ * not enabled — it also mangles legitimate internal operator filters.)
  */
 
 const FORBIDDEN_KEYS = new Set(['__proto__', 'constructor', 'prototype']);

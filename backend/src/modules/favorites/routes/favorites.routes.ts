@@ -10,5 +10,7 @@ favoritesRouter.get('/check/:propertyId', optionalAuthenticate, asyncHandler(con
 
 // Authenticated: the user's own saved properties.
 favoritesRouter.get('/', authenticate, asyncHandler(controller.listFavorites));
+// Ids only, for the client-side favourites store.
+favoritesRouter.get('/ids', authenticate, asyncHandler(controller.listFavoriteIds));
 favoritesRouter.post('/:propertyId', authenticate, asyncHandler(controller.addFavorite));
 favoritesRouter.delete('/:propertyId', authenticate, asyncHandler(controller.removeFavorite));

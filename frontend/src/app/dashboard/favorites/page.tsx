@@ -12,6 +12,7 @@ import type { PropertyCard as PropertyCardType } from '@/lib/api/types';
 
 type Status = 'loading' | 'ready' | 'error' | 'unauthorized';
 
+const PAGE_SIZE = 24;
 const SKELETON_KEYS = ['s1', 's2', 's3', 's4', 's5', 's6'];
 
 function CardSkeleton() {
@@ -32,37 +33,59 @@ export default function FavoritesPage() {
   const [cards, setCards] = useState<PropertyCardType[]>([]);
   const [status, setStatus] = useState<Status>('loading');
   const [error, setError] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [hasNextPage, setHasNextPage] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
 
   const savedIds = useFavoritesStore((state) => state.savedIds);
   const seed = useFavoritesStore((state) => state.seed);
 
-  const load = useCallback(async () => {
-    setStatus('loading');
-    setError(null);
+  const load = useCallback(
+    async (pageToLoad: number, append: boolean) => {
+      if (append) {
+        setLoadingMore(true);
+      } else {
+        setStatus('loading');
+      }
+      setError(null);
 
-    const result = await safeBrowserRequest<PropertyCardType[]>('/favorites', {
-      query: { limit: 50 },
-    });
+      const result = await safeBrowserRequest<PropertyCardType[]>('/favorites', {
+        query: { page: pageToLoad, limit: PAGE_SIZE },
+      });
 
-    if (result.ok) {
-      setCards(result.data);
-      // Feed the shared store so hearts everywhere match this list.
-      seed(result.data.map((card) => card.id));
-      setStatus('ready');
-      return;
-    }
+      if (result.ok) {
+        setCards((previous) => {
+          if (!append) {
+            return result.data;
+          }
+          // Append without duplicates in case the ordering shifted between pages.
+          const seen = new Set(previous.map((card) => card.id));
+          return [...previous, ...result.data.filter((card) => !seen.has(card.id))];
+        });
+        // Feed the shared store so hearts everywhere match this list.
+        seed(result.data.map((card) => card.id));
+        setHasNextPage(Boolean(result.meta.hasNextPage));
+        setPage(pageToLoad);
+        setStatus('ready');
+        setLoadingMore(false);
+        return;
+      }
 
-    if (isApiError(result.error) && result.error.isAuth) {
-      setStatus('unauthorized');
-      return;
-    }
+      if (isApiError(result.error) && result.error.isAuth) {
+        setStatus('unauthorized');
+        setLoadingMore(false);
+        return;
+      }
 
-    setError(result.error.message);
-    setStatus('error');
-  }, [seed]);
+      setError(result.error.message);
+      setStatus('error');
+      setLoadingMore(false);
+    },
+    [seed],
+  );
 
   useEffect(() => {
-    void load();
+    void load(1, false);
   }, [load]);
 
   // Removing a favourite on any card updates the store, which filters this list.
@@ -106,7 +129,7 @@ export default function FavoritesPage() {
           <p className="mt-1 text-sm text-muted-foreground">{error}</p>
           <button
             type="button"
-            onClick={() => void load()}
+            onClick={() => void load(1, false)}
             className="mt-5 inline-flex items-center gap-2 rounded-lg border bg-background px-4 py-2 text-sm font-semibold hover:bg-muted"
           >
             <RefreshCw className="h-4 w-4" aria-hidden /> Try again
@@ -131,11 +154,26 @@ export default function FavoritesPage() {
       )}
 
       {status === 'ready' && visible.length > 0 && (
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {visible.map((property) => (
-            <PropertyCard key={property.id} property={property} isFavorited />
-          ))}
-        </div>
+        <>
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {visible.map((property) => (
+              <PropertyCard key={property.id} property={property} isFavorited />
+            ))}
+          </div>
+
+          {hasNextPage && (
+            <div className="mt-8 text-center">
+              <button
+                type="button"
+                onClick={() => void load(page + 1, true)}
+                disabled={loadingMore}
+                className="inline-flex items-center gap-2 rounded-lg border bg-background px-5 py-2.5 text-sm font-semibold transition hover:bg-muted disabled:opacity-70"
+              >
+                {loadingMore ? 'Loading...' : 'Show more'}
+              </button>
+            </div>
+          )}
+        </>
       )}
 
       {status === 'ready' && visible.length === 0 && (

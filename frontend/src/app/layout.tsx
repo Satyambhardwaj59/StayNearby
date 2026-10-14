@@ -23,10 +23,11 @@ export const metadata: Metadata = rootMetadata();
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en-IN">
-      <body
-        className={`${montserrat.variable} min-h-dvh flex flex-col bg-background text-foreground antialiased`}
-      >
+    // The font variable must be declared on <html>, not <body>: `:root` (which is
+    // <html>) builds `--font-sans` from `--font-montserrat`, and a variable set on
+    // a descendant like <body> is not visible to `:root`, so Montserrat never applied.
+    <html lang="en-IN" className={montserrat.variable}>
+      <body className="min-h-dvh flex flex-col bg-background text-foreground antialiased">
         <Header />
         <div className="flex-1">{children}</div>
         <Footer />

@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { usePathname, useRouter } from 'next/navigation';
 import { Building2, Heart, MapPin, ShieldCheck } from 'lucide-react';
 import {
   formatRent,
@@ -34,6 +35,8 @@ function resolveImage(property: PropertyCardProps['property']): { url: string; a
 
 export function PropertyCard({ property, isFavorited, onToggleFavorite }: PropertyCardProps) {
   const propertyId = property.id;
+  const router = useRouter();
+  const pathname = usePathname();
 
   const savedInStore = useFavoritesStore((state) => state.savedIds.has(propertyId));
   const hydrated = useFavoritesStore((state) => state.status === 'ready');
@@ -56,10 +59,20 @@ export function PropertyCard({ property, isFavorited, onToggleFavorite }: Proper
   const roomType = 'roomType' in property ? property.roomType : null;
   const availableFrom = 'availableFrom' in property ? property.availableFrom : null;
 
-  const handleFavoriteClick = (event: React.MouseEvent) => {
+  const handleFavoriteClick = async (event: React.MouseEvent) => {
     event.preventDefault();
     event.stopPropagation();
-    void toggleFavorite(propertyId);
+    await toggleFavorite(propertyId);
+
+    // The toggle failed because the session expired: send the user to login and
+    // come back to this page afterwards.
+    const store = useFavoritesStore.getState();
+    if (store.authRequired) {
+      store.clearAuthRequired();
+      router.push(`/login?next=${encodeURIComponent(pathname)}`);
+      return;
+    }
+
     onToggleFavorite?.(propertyId);
   };
 

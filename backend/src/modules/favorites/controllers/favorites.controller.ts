@@ -74,6 +74,28 @@ export async function listFavorites(req: Request, res: Response): Promise<Respon
   return sendSuccess(res, items, { meta: buildOffsetMeta(total, page, limit) });
 }
 
+/**
+ * Just the ids of the authenticated user's saved properties.
+ *
+ * The client-side favourites store only needs to know which ids are saved, so
+ * this projection returns ids alone — no property lookup, no card serialisation
+ * — sorted newest first and capped so a runaway account cannot stream an
+ * unbounded list.
+ */
+export async function listFavoriteIds(req: Request, res: Response): Promise<Response> {
+  const userId = req.user?.userId;
+  if (!userId) throw new BadRequestError('User required');
+
+  const rows = await FavoriteModel.find({ userId: toObjectId(userId) })
+    .select('propertyId')
+    .sort({ createdAt: -1 })
+    .limit(2000)
+    .lean()
+    .exec();
+
+  return sendSuccess(res, { ids: rows.map((row) => String(row.propertyId)) });
+}
+
 export async function addFavorite(req: Request, res: Response): Promise<Response> {
   const userId = req.user?.userId;
   if (!userId) throw new BadRequestError('User required');
